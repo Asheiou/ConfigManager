@@ -21,7 +21,7 @@
   </repositories>
 
   <name>configmanager</name>
-  <url>http://maven.apache.org</url>
+  <url>https://maven.apache.org</url>
 
   <dependencies>
     <dependency>
