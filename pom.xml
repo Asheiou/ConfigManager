@@ -4,15 +4,24 @@
 
   <groupId>uk.asheiou</groupId>
   <artifactId>configmanager</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>1.0</version>
   <packaging>jar</packaging>
+  
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.build.javaVersion>21</project.build.javaVersion>
+  </properties>
+
+  <repositories>
+      <repository>
+      <id>spigot-repo</id>
+      <name>Spigot Repository</name>
+      <url>https://hub.spigotmc.org/nexus/content/groups/public</url>
+    </repository>
+  </repositories>
 
   <name>configmanager</name>
   <url>http://maven.apache.org</url>
-
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
 
   <dependencies>
     <dependency>
@@ -21,5 +30,28 @@
       <version>3.8.1</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.spigotmc</groupId>
+      <artifactId>spigot-api</artifactId>
+      <version>1.21.5-R0.1-SNAPSHOT</version>
+    </dependency>
   </dependencies>
+  
+  <distributionManagement>
+    <repository>
+        <id>asheiou-repo</id>
+        <url>https://repo.asheiou.uk/releases</url>
+    </repository>
+  </distributionManagement>
+  
+  <build>
+    <defaultGoal>install</defaultGoal>
+    <resources>
+      <resource>
+        <targetPath>.</targetPath>
+        <directory>${project.basedir}/src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+  </build>
 </project>
