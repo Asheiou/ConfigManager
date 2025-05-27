@@ -29,7 +29,7 @@ your repositories and then add the package as a dependency.
   <dependency>
     <groupId>cymru.asheiou</groupId>
     <artifactId>configmanager</artifactId>
-    <version>1.0.1</version>
+    <version>1.1</version>
     <scope>compile</scope>
   </dependency>
 </dependencies>
