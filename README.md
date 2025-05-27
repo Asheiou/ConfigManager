@@ -15,7 +15,7 @@ your repositories and then add the package as a dependency.
   <repository>
     <id>asheiou-repo</id>
     <name>Asheiou Repo</name>
-    <url>https://repo.asheiou.uk/releases</url>
+    <url>https://repo.asheiou.cymru/releases</url>
   </repository>
 </repositories>
 <!-- ... -->
