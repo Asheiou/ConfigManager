@@ -27,7 +27,7 @@ your repositories and then add the package as a dependency.
 <!-- ... -->
 <dependencies>
   <dependency>
-    <groupId>uk.asheiou</groupId>
+    <groupId>cymru.asheiou</groupId>
     <artifactId>configmanager</artifactId>
     <version>1.0.1</version>
     <scope>compile</scope>
