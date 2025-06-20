@@ -9,8 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.yaml.snakeyaml.Yaml;
@@ -20,11 +20,10 @@ public class ConfigManager {
     JavaPlugin plugin;
     boolean purge;
 
-    /**
-     * The main class of the plugin that contains its functionality.
-     *
-     * @param plugin   Your plugin
-     * @param purge Whether the plugin should delete config.yml keys that aren't present in the resources config.yml
+    /*
+    The main class of the library.
+    @param plugin: The JavaPlugin
+    @param purge: Whether the plugin should purge values found in the default config but not in the user config.
      */
     public ConfigManager(JavaPlugin plugin, boolean purge) {
         this.plugin = plugin;
@@ -33,28 +32,71 @@ public class ConfigManager {
 
     Yaml yaml = new Yaml();
 
-    /**
-     * A function to return all keys present in one Map but not the other
-     *
-     * @param first The Map<\String, Object> you want to use as a reference
-     * @param second The Map<\String, Object> you want to test
-     * @return A Set<\String> of all keys present in first that are not present in second
-     */
-    public static Set<String> checkUniqueKeys(
-            Map<String, Object> first,
-            Map<String, Object> second) {
+    // Recursively finds all missing keys (dot notation) in reference that are missing from target
+    @SuppressWarnings("unchecked")
+    public static Set<String> findMissingKeys(Map<String, Object> reference, Map<String, Object> target, String prefix) {
+        Set<String> missing = new HashSet<>();
+        for (String key : reference.keySet()) {
+            String path = prefix.isEmpty() ? key : prefix + "." + key;
+            Object refVal = reference.get(key);
+            Object tgtVal = target != null ? target.get(key) : null;
 
-        return first.keySet().stream()
-                .filter(key -> !second.containsKey(key))
-                .collect(Collectors.toSet());
+            if (target == null || !target.containsKey(key)) {
+                // If the key is missing entirely, add all subkeys if it's a map, else the key itself
+                if (refVal instanceof Map) {
+                    missing.addAll(getAllPaths((Map<String, Object>) refVal, path));
+                } else {
+                    missing.add(path);
+                }
+            } else if (refVal instanceof Map && tgtVal instanceof Map) {
+                // Both are maps, go deeper
+                missing.addAll(findMissingKeys((Map<String, Object>) refVal, (Map<String, Object>) tgtVal, path));
+            } else if (refVal instanceof Map && !(tgtVal instanceof Map)) {
+                // Type mismatch, treat as all subkeys missing
+                missing.addAll(getAllPaths((Map<String, Object>) refVal, path));
+            }
+            // If refVal is not a map, and key exists, do nothing (exists and is a leaf)
+        }
+        return missing;
     }
 
-    /**
-     * This plugin checks the user's config.yml against the internal config.yml.
-     * It will fail and disable the plugin if it cannot locate an internal config.yml in its resources.
-     * It currently cannot read or correct nested YAML values (i.e. foo.bar.value) unless the top layer is missing.
-     *
-     * @return An Integer[] saying how many keys were [0] added and [1] removed. [0] = -1 means the config has been reset due to it being missing or unreadable (if it's unreadable, it will be copied into a config-broken.yml)
+    // Helper: Get all key paths in a nested map
+    @SuppressWarnings("unchecked")
+    private static Set<String> getAllPaths(Map<String, Object> map, String prefix) {
+        Set<String> paths = new HashSet<>();
+        for (String key : map.keySet()) {
+            Object value = map.get(key);
+            String path = prefix + "." + key;
+            if (value instanceof Map) {
+                paths.addAll(getAllPaths((Map<String, Object>) value, path));
+            } else {
+                paths.add(path);
+            }
+        }
+        return paths;
+    }
+
+    // Set value at given dotted path in Bukkit config
+    private void setConfigValue(String key, Object value) {
+        plugin.getConfig().set(key, value);
+    }
+
+    // Get value by path from nested Map
+    @SuppressWarnings("unchecked")
+    private Object getValueByPath(Map<String, Object> map, String path) {
+        String[] parts = path.split("\\.");
+        Object current = map;
+        for (String part : parts) {
+            if (!(current instanceof Map)) return null;
+            current = ((Map<String, Object>) current).get(part);
+        }
+        return current;
+    }
+
+    /*
+    (Re)load the config. This can be called whenever, although it is blocking.
+    Returns an Integer[], [0] is the number of values added, [1] is the number removed.
+    If a config file is not found or unparsable this function will log it in the console and return {-1, -1}.
      */
     public Integer[] loadConfig() {
         FileInputStream userInput;
@@ -68,15 +110,13 @@ public class ConfigManager {
             return new Integer[]{-1, -1};
         }
 
-        InputStream defaultInput;
-        defaultInput = getClass().getClassLoader().getResourceAsStream("config.yml");
+        InputStream defaultInput = getClass().getClassLoader().getResourceAsStream("config.yml");
 
         Map<String, Object> userConfig;
         try {
             userConfig = yaml.load(userInput);
         } catch (ScannerException e) {
             String brokenConfigString = plugin.getDataFolder() + File.separator + "config-broken" + UUID.randomUUID() + ".yml";
-
             try {
                 Files.copy(userConfigFile.toPath(), (new File(brokenConfigString).toPath()), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e1) {
@@ -87,7 +127,6 @@ public class ConfigManager {
             plugin.getLogger().info("Config file unreadable! Creating a new one. Your broken config can be found at " + brokenConfigString);
             return new Integer[]{-1, -1};
         }
-
 
         Map<String, Object> defaultConfig;
         try {
@@ -114,15 +153,16 @@ public class ConfigManager {
 
         int amountRemoved = 0;
         if (purge) {
-            for (String uniqueKey : checkUniqueKeys(userConfig, defaultConfig)) {
-                plugin.getConfig().set(uniqueKey, null); // remove keys that are in the user-config and not default
+            for (String uniqueKey : findMissingKeys(userConfig, defaultConfig, "")) {
+                setConfigValue(uniqueKey, null); // Remove keys not in default
                 amountRemoved++;
             }
         }
 
         int amountAdded = 0;
-        for (String uniqueKey : checkUniqueKeys(defaultConfig, userConfig)) {
-            plugin.getConfig().set(uniqueKey, defaultConfig.get(uniqueKey));
+        for (String uniqueKey : findMissingKeys(defaultConfig, userConfig, "")) {
+            Object value = getValueByPath(defaultConfig, uniqueKey);
+            setConfigValue(uniqueKey, value);
             amountAdded++;
         }
 

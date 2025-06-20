@@ -29,7 +29,7 @@ your repositories and then add the package as a dependency.
   <dependency>
     <groupId>cymru.asheiou</groupId>
     <artifactId>configmanager</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
     <scope>compile</scope>
   </dependency>
 </dependencies>
@@ -37,11 +37,5 @@ your repositories and then add the package as a dependency.
 ```
 
 ## Limitations
-At present, this package only works on config.yml files and cannot
-handle nested YAML keys, i.e. in:
-```yaml
-key:
-  nested-key: value
-```
-the package can only "see" and correct the top layer of keys. If
-you'd like to help fix that, make a PR! I'd be happy to review it.
+At present, this library only works on the default config.yml. If that's something 
+you'd like to change, feel free to submit a PR!
